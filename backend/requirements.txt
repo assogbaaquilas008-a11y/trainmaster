@@ -1,32 +1,30 @@
-# TrainMaster – backend dependencies
-# Pin major versions for reproducibility; update intentionally.
-
+# Core
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 pydantic==2.7.1
 pydantic-settings==2.2.1
-pydantic[email]
+python-multipart==0.0.9
 
 # Database
 sqlalchemy==2.0.30
 aiosqlite==0.20.0
-asyncpg==0.29.0          # PostgreSQL driver (production)
+asyncpg==0.29.0
 alembic==1.13.1
 
 # Auth
 python-jose[cryptography]==3.3.0
 bcrypt==4.1.3
+passlib[bcrypt]==1.7.4
 
-# HTTP client (HuggingFace API fallback)
+# HTTP client
 httpx==0.27.0
 
-# AI validation
-rapidfuzz==3.9.2          # fast fuzzy matching
-sentence-transformers==3.0.1   # local SBERT (optional, ~80 MB model download)
-scikit-learn==1.4.2       # cosine_similarity
+# Validation (allégé : on garde juste rapidfuzz)
+rapidfuzz==3.9.2
 
-# Structured logging
-structlog==24.1.0
+# Pour l'API HuggingFace (on enlève sentence-transformers et scikit-learn)
+requests==2.32.3
 
-# Email
-# no extra dep – uses stdlib smtplib
+# Utilitaires
+email-validator==2.1.1
+python-dotenv==1.0.1
