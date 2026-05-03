@@ -125,6 +125,7 @@ class AttemptStart(BaseModel):
 class AttemptOut(BaseModel):
     id: int
     quiz_id: int
+    attempt_number: int
     score: int
     started_at: datetime
     completed_at: Optional[datetime]

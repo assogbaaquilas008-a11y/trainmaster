@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from sqlalchemy import (
     Boolean, DateTime, Float, ForeignKey, Integer,
-    String, Text, UniqueConstraint, func,
+    String, Text, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,7 +37,7 @@ class User(Base):
     created_at:    Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=now_utc)
 
     attempts:      Mapped[List[Attempt]] = relationship(back_populates="user",  cascade="all, delete-orphan")
-    flags:         Mapped[List[Flag]]    = relationship(back_populates="user", foreign_keys="[Flag.user_id]" ,cascade="all, delete-orphan")
+    flags:         Mapped[List[Flag]]    = relationship(back_populates="user",  cascade="all, delete-orphan")
     score:         Mapped[Optional[LeaderboardEntry]] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
@@ -82,16 +82,15 @@ class Question(Base):
 
 class Attempt(Base):
     __tablename__ = "attempts"
-    __table_args__ = (
-        UniqueConstraint("user_id", "quiz_id", name="uq_user_quiz"),
-    )
+    # UniqueConstraint removed – multiple attempts per user per quiz are now allowed.
 
-    id:           Mapped[int]          = mapped_column(Integer, primary_key=True)
-    user_id:      Mapped[int]          = mapped_column(ForeignKey("users.id"))
-    quiz_id:      Mapped[int]          = mapped_column(ForeignKey("quizzes.id"))
-    score:        Mapped[int]          = mapped_column(Integer, default=0)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    started_at:   Mapped[datetime]     = mapped_column(DateTime(timezone=True), default=now_utc)
+    id:             Mapped[int]               = mapped_column(Integer, primary_key=True)
+    user_id:        Mapped[int]               = mapped_column(ForeignKey("users.id"))
+    quiz_id:        Mapped[int]               = mapped_column(ForeignKey("quizzes.id"))
+    attempt_number: Mapped[int]               = mapped_column(Integer, nullable=False, default=1)
+    score:          Mapped[int]               = mapped_column(Integer, default=0)
+    completed_at:   Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at:     Mapped[datetime]          = mapped_column(DateTime(timezone=True), default=now_utc)
 
     user:    Mapped[User]              = relationship(back_populates="attempts")
     quiz:    Mapped[Quiz]              = relationship(back_populates="attempts")
@@ -127,22 +126,15 @@ class Flag(Base):
     question_id:    Mapped[int]           = mapped_column(ForeignKey("questions.id"))
     submitted_text: Mapped[str]           = mapped_column(Text)
     reason:         Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # pending | accepted | rejected
     status:         Mapped[str]           = mapped_column(String(16), default="pending")
     reviewed_by:    Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at:     Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=now_utc)
 
-    user: Mapped[User] = relationship(
-        "User",
-        back_populates="flags",
-        foreign_keys=[user_id]
-    )
+    user:     Mapped[User]                = relationship(back_populates="flags", foreign_keys=[user_id])
+    question: Mapped[Question]            = relationship(back_populates="flags")
 
-    reviewer: Mapped[Optional[User]] = relationship(
-        "User",
-        foreign_keys=[reviewed_by]
-    )
 
-    question: Mapped[Question] = relationship(back_populates="flags")
 # ---------------------------------------------------------------------------
 # Leaderboard (materialised view – updated on attempt completion)
 # ---------------------------------------------------------------------------

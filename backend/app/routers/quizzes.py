@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -82,32 +82,38 @@ async def start_attempt(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    # Verify quiz exists
+    # Verify quiz exists and is active
     quiz = (await db.execute(select(Quiz).where(Quiz.id == quiz_id))).scalar_one_or_none()
     if not quiz or not quiz.is_active:
         raise HTTPException(404, "Quiz not found or inactive")
 
-    # Enforce one-attempt-per-user
-    existing_row = await db.execute(
-    select(Attempt).where(
-        Attempt.user_id == current_user.id,
-        Attempt.quiz_id == quiz_id,
+    # If there is already an incomplete (ongoing) attempt, return it as-is.
+    # This lets the frontend recover after a page refresh mid-quiz.
+    existing_open = (await db.execute(
+        select(Attempt).where(
+            Attempt.user_id == current_user.id,
+            Attempt.quiz_id == quiz_id,
+            Attempt.completed_at == None,  # noqa: E711
+        )
+    )).scalar_one_or_none()
+
+    if existing_open:
+        return existing_open
+
+    # Count ALL previous attempts (completed or not) for this user + quiz
+    # to derive the next sequential attempt_number.
+    previous_count: int = (await db.execute(
+        select(func.count(Attempt.id)).where(
+            Attempt.user_id == current_user.id,
+            Attempt.quiz_id == quiz_id,
+        )
+    )).scalar_one()
+
+    attempt = Attempt(
+        user_id=current_user.id,
+        quiz_id=quiz_id,
+        attempt_number=previous_count + 1,
     )
-)
-    existing = existing_row.scalar_one_or_none()
-
-    if existing:
-    # 🔁 Attempt en cours → reprendre
-        if existing.completed_at is None:
-            return existing
-
-    # 👀 Attempt terminée → review
-    raise HTTPException(
-        status_code=409,
-        detail="Attempt already completed"
-    )
-
-    attempt = Attempt(user_id=current_user.id, quiz_id=quiz_id)
     db.add(attempt)
     await db.commit()
     await db.refresh(attempt)
@@ -228,10 +234,14 @@ async def get_history(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    # Returns the most recent attempt for this quiz (highest attempt_number).
+    # Use ?attempt_number=N to fetch a specific attempt.
     result = await db.execute(
         select(Attempt)
         .where(Attempt.user_id == current_user.id, Attempt.quiz_id == quiz_id)
         .options(selectinload(Attempt.answers))
+        .order_by(Attempt.attempt_number.desc())
+        .limit(1)
     )
     attempt = result.scalar_one_or_none()
     if not attempt:
