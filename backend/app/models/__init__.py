@@ -37,7 +37,7 @@ class User(Base):
     created_at:    Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=now_utc)
 
     attempts:      Mapped[List[Attempt]] = relationship(back_populates="user",  cascade="all, delete-orphan")
-    flags:         Mapped[List[Flag]]    = relationship(back_populates="user",  cascade="all, delete-orphan")
+    flags:         Mapped[List[Flag]]    = relationship(back_populates="user", foreign_keys="[Flag.user_id]" ,cascade="all, delete-orphan")
     score:         Mapped[Optional[LeaderboardEntry]] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
