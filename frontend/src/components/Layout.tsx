@@ -39,7 +39,7 @@ export default function Layout() {
       {/* Bouton hamburger – toujours visible */}
       <button
         onClick={toggleSidebar}
-        className="fixed top-4 left-4 z-30 p-2 rounded-md bg-white shadow-md hover:bg-gray-100 focus:outline-none"
+        className="fixed top-4 left-4 z-50 p-2 rounded-md bg-white shadow-md hover:bg-gray-100 focus:outline-none"
         aria-label="Menu"
       >
         {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
